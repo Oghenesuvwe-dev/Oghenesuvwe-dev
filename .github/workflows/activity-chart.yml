@@ -17,6 +17,9 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
+          set -e
+          sudo apt-get update && sudo apt-get install -y jq
+          mkdir -p public
           USER=$(echo ${{ github.repository }} | cut -d'/' -f1)
           
           curl -s -H "Authorization: token $GH_TOKEN" \
