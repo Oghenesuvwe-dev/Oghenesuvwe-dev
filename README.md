@@ -15,23 +15,17 @@ Welcome to my professional portfolio, a showcase of my expertise in cloud archit
 
 ## Featured Projects
 
-### [Secure AWS Two-Tier Application](https://github.com/Oghenesuvwe-dev/Secure-two-tier-aws-application)
-Production-grade AWS infrastructure with ECS Fargate, RDS, ALB, and WAF. Implements security best practices and cost optimization.
-
 ### [Terraform AWS ECS Fargate](https://github.com/Oghenesuvwe-dev/Terraform-AWS-ECS-fargate)
 Secure containerized web application deployment on AWS using Terraform. Infrastructure as Code with automated provisioning.
-
-### [NAMASKAHsms](https://github.com/Oghenesuvwe-dev/NAMASKAHsms)
-Enterprise SMS service platform built with FastAPI, PostgreSQL, and Docker. Kubernetes-ready with monitoring and analytics.
 
 ### [IntelliNemoAgent](https://github.com/Oghenesuvwe-dev/IntelliNemoAgent)
 Intelligent Infrastructure Co-Pilot powered by NVIDIA NIM and Nemo Retriever. AI-driven infrastructure management.
 
-### [ProEngineOps](https://github.com/Oghenesuvwe-dev/ProEngineOps)
-GitOps multi-cluster Kubernetes management with FluxCD. Production-grade infrastructure automation.
-
 ### [Synapse Lead Agent](https://github.com/Oghenesuvwe-dev/Synapse-lead-Agent)
 Autonomous AI agent for CRM automation. Automatically researches, enriches, and prioritizes leads in SuiteCRM.
+
+### [ProEngineOps](https://github.com/Oghenesuvwe-dev/ProEngineOps)
+GitOps multi-cluster Kubernetes management with FluxCD. Production-grade infrastructure automation.
 
 ![Profile Views](https://komarev.com/ghpvc/?username=Oghenesuvwe-dev&color=blue&style=flat-square)
 ![Followers](https://img.shields.io/github/followers/Oghenesuvwe-dev?style=social)
@@ -73,16 +67,17 @@ I'm a versatile technology professional based in Nigeria, specializing in:
 - **Microsoft Guinness World Record Holder** - AI learning achievement
 - **AWS Well-Architected Proficient** - Cloud architecture best practices
 
-## **Technical Expertise** - Full-Stack Dev | Cloud Engineer
+## Technical Expertise
 
-## FinOps & Analytics Tools
+Full-Stack Development | Cloud Architecture | FinOps Strategy
+
+### FinOps & Analytics
 - Power BI for cloud cost visualization
-- Google Sheets for financial modeling
-- Excel dashboards for executive reporting
 - SQL for data analysis and optimization
 - Custom Python scripts for cost automation
 
-## Cloud Platforms** - Azure | AWS | OCI | GCP
+### Cloud Platforms
+Azure | AWS | Oracle Cloud | GCP
 
 ## Let's Connect
 - **LinkedIn**: [oghenesuvwe-omashone](https://www.linkedin.com/in/oghenesuvwe-omashone)
