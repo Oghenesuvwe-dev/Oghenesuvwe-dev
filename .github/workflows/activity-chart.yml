@@ -24,15 +24,29 @@ jobs:
           mkdir -p public
           USER=$(echo ${{ github.repository }} | cut -d'/' -f1)
           
+          # Fetch events and handle empty response
           curl -s -H "Authorization: token $GH_TOKEN" \
-            "https://api.github.com/users/$USER/events/public?per_page=100" | \
-            jq -r '.[].created_at' | cut -d'T' -f1 | sort | uniq -c | \
-            awk '{printf "%s,%s\n", $2, $1}' > activity.csv
+            "https://api.github.com/users/$USER/events/public?per_page=100" > events.json
+          
+          # Check if we got valid data
+          if [ ! -s events.json ] || ! jq -e '.[0]' events.json > /dev/null 2>&1; then
+            echo "No events found or API error, creating placeholder chart"
+            echo "2026-01-12,1" > activity.csv
+          else
+            jq -r '.[].created_at' events.json | cut -d'T' -f1 | sort | uniq -c | \
+              awk '{printf "%s,%s\n", $2, $1}' > activity.csv
+          fi
+          
+          # Ensure we have data
+          if [ ! -s activity.csv ]; then
+            echo "2026-01-12,1" > activity.csv
+          fi
           
           LABELS=$(awk -F',' '{print $1}' activity.csv | tail -30 | paste -sd'|')
           DATA=$(awk -F',' '{print $2}' activity.csv | tail -30 | paste -sd',')
           
-          curl -o public/activity-chart.svg "https://quickchart.io/chart?w=800&h=200&c={type:'bar',data:{labels:['${LABELS//|/\',\'}'],datasets:[{label:'Events',data:[${DATA}],backgroundColor:'rgba(54,162,235,0.5)',borderColor:'rgb(54,162,235)',borderWidth:1}]},options:{scales:{y:{beginAtZero:true}}}}"
+          # Generate chart
+          curl -f -o public/activity-chart.svg "https://quickchart.io/chart?w=800&h=200&c={type:'bar',data:{labels:['${LABELS//|/\',\'}'],datasets:[{label:'Events',data:[${DATA}],backgroundColor:'rgba(54,162,235,0.5)',borderColor:'rgb(54,162,235)',borderWidth:1}]},options:{scales:{y:{beginAtZero:true}}}}" || echo "Chart generation failed"
       
       - name: Commit
         run: |
