@@ -15,17 +15,23 @@ Welcome to my professional portfolio, a showcase of my expertise in cloud archit
 
 ## Featured Projects
 
-### 🚀 [Cloud Cost Optimizer](https://github.com/Oghenesuvwe-dev/cloud-cost-optimizer)
-Automated FinOps solution for multi-cloud cost optimization using Python and Terraform. Reduces cloud spend by up to 40%.
+### [Secure AWS Two-Tier Application](https://github.com/Oghenesuvwe-dev/Secure-two-tier-aws-application)
+Production-grade AWS infrastructure with ECS Fargate, RDS, ALB, and WAF. Implements security best practices and cost optimization.
 
-### 🏗️ [Infrastructure as Code Templates](https://github.com/Oghenesuvwe-dev/iac-templates)
-Production-ready Terraform modules for AWS, Azure, and OCI. Implements security best practices and cost optimization.
+### [Terraform AWS ECS Fargate](https://github.com/Oghenesuvwe-dev/Terraform-AWS-ECS-fargate)
+Secure containerized web application deployment on AWS using Terraform. Infrastructure as Code with automated provisioning.
 
-### 📊 [FinOps Dashboard](https://github.com/Oghenesuvwe-dev/finops-dashboard)
-Real-time cloud cost analytics dashboard built with React and Python. Integrates with major cloud providers.
+### [NAMASKAHsms](https://github.com/Oghenesuvwe-dev/NAMASKAHsms)
+Enterprise SMS service platform built with FastAPI, PostgreSQL, and Docker. Kubernetes-ready with monitoring and analytics.
 
-### 🤖 [DevOps Automation Suite](https://github.com/Oghenesuvwe-dev/devops-automation)
-CI/CD pipelines and automation scripts for containerized applications. Kubernetes-native deployment workflows.
+### [IntelliNemoAgent](https://github.com/Oghenesuvwe-dev/IntelliNemoAgent)
+Intelligent Infrastructure Co-Pilot powered by NVIDIA NIM and Nemo Retriever. AI-driven infrastructure management.
+
+### [ProEngineOps](https://github.com/Oghenesuvwe-dev/ProEngineOps)
+GitOps multi-cluster Kubernetes management with FluxCD. Production-grade infrastructure automation.
+
+### [Synapse Lead Agent](https://github.com/Oghenesuvwe-dev/Synapse-lead-Agent)
+Autonomous AI agent for CRM automation. Automatically researches, enriches, and prioritizes leads in SuiteCRM.
 
 ![Profile Views](https://komarev.com/ghpvc/?username=Oghenesuvwe-dev&color=blue&style=flat-square)
 ![Followers](https://img.shields.io/github/followers/Oghenesuvwe-dev?style=social)
