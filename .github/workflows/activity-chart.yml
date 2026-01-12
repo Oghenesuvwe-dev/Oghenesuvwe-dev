@@ -2,7 +2,9 @@ name: Profile Activity Chart
 
 on:
   schedule:
-    - cron: '0 */6 * * *'
+    - cron: '*/30 * * * *'  # Every 30 minutes
+    - cron: '0 * * * *'     # Every hour
+    - cron: '0 */6 * * *'   # Every 6 hours
   workflow_dispatch:
 
 jobs:
