@@ -13,6 +13,20 @@ Welcome to my professional portfolio, a showcase of my expertise in cloud archit
 ## GitHub Activity
 ![Activity Graph](https://github-readme-activity-graph.vercel.app/graph?username=Oghenesuvwe-dev&theme=github-dark&hide_border=true&bg_color=0d1117)
 
+## Featured Projects
+
+### 🚀 [Cloud Cost Optimizer](https://github.com/Oghenesuvwe-dev/cloud-cost-optimizer)
+Automated FinOps solution for multi-cloud cost optimization using Python and Terraform. Reduces cloud spend by up to 40%.
+
+### 🏗️ [Infrastructure as Code Templates](https://github.com/Oghenesuvwe-dev/iac-templates)
+Production-ready Terraform modules for AWS, Azure, and OCI. Implements security best practices and cost optimization.
+
+### 📊 [FinOps Dashboard](https://github.com/Oghenesuvwe-dev/finops-dashboard)
+Real-time cloud cost analytics dashboard built with React and Python. Integrates with major cloud providers.
+
+### 🤖 [DevOps Automation Suite](https://github.com/Oghenesuvwe-dev/devops-automation)
+CI/CD pipelines and automation scripts for containerized applications. Kubernetes-native deployment workflows.
+
 ![Profile Views](https://komarev.com/ghpvc/?username=Oghenesuvwe-dev&color=blue&style=flat-square)
 ![Followers](https://img.shields.io/github/followers/Oghenesuvwe-dev?style=social)
 ![Stars](https://img.shields.io/github/stars/Oghenesuvwe-dev?style=social)
@@ -52,8 +66,6 @@ I'm a versatile technology professional based in Nigeria, specializing in:
 - **Oracle Cloud Infrastructure 2025 Certified** - Latest cloud infrastructure knowledge
 - **Microsoft Guinness World Record Holder** - AI learning achievement
 - **AWS Well-Architected Proficient** - Cloud architecture best practices
-- 
-### **Cloud Platforms** - Azure | AWS | OCI | GCP
 
 ## **Technical Expertise** - Full-Stack Dev | Cloud Engineer
 
@@ -63,6 +75,8 @@ I'm a versatile technology professional based in Nigeria, specializing in:
 - Excel dashboards for executive reporting
 - SQL for data analysis and optimization
 - Custom Python scripts for cost automation
+
+## Cloud Platforms** - Azure | AWS | OCI | GCP
 
 ## Let's Connect
 - **LinkedIn**: [oghenesuvwe-omashone](https://www.linkedin.com/in/oghenesuvwe-omashone)

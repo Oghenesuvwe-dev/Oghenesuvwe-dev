@@ -29,3 +29,12 @@ Thumbs.db
 # Markdown files (except README)
 *.md
 !README.md
+
+# Temporary files
+*.csv
+*.tmp
+*.cache
+
+# Test files
+*.test.js
+*.spec.js
