@@ -1,60 +1,18 @@
 name: Profile Activity Chart
 
+# Deprecated: the live portfolio now renders repository activity directly
+# from GitHub's public API in src/components/GitHubActivityChart.tsx.
+# Kept as a manual workflow for historical compatibility; it no longer
+# generates or commits a static chart artifact.
+
 on:
-  schedule:
-    - cron: '0 * * * *'     # Every hour
   workflow_dispatch:
 
 jobs:
-  generate:
+  deprecated:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
     steps:
-      - uses: actions/checkout@v4
-      
-      - name: Generate Chart
-        env:
-          GH_TOKEN: ${{ secrets.GH_PAT }}
+      - name: Explain replacement
         run: |
-          set -e
-          sudo apt-get update && sudo apt-get install -y jq
-          mkdir -p public
-          USER=$(echo ${{ github.repository }} | cut -d'/' -f1)
-          
-          # Fetch events and handle empty response
-          curl -s -H "Authorization: token $GH_TOKEN" \
-            "https://api.github.com/users/$USER/events/public?per_page=100" > events.json
-          
-          # Check if we got valid data
-          if [ ! -s events.json ] || ! jq -e '.[0]' events.json > /dev/null 2>&1; then
-            echo "No events found or API error, creating placeholder chart"
-            echo "2026-01-12,1" > activity.csv
-          else
-            jq -r '.[].created_at' events.json | cut -d'T' -f1 | sort | uniq -c | \
-              awk '{printf "%s,%s\n", $2, $1}' > activity.csv
-          fi
-          
-          # Ensure we have data
-          if [ ! -s activity.csv ]; then
-            echo "2026-01-12,1" > activity.csv
-          fi
-          
-          LABELS=$(awk -F',' '{print $1}' activity.csv | tail -30 | paste -sd'|')
-          DATA=$(awk -F',' '{print $2}' activity.csv | tail -30 | paste -sd',')
-          
-          # Generate chart
-          curl -f -o public/activity-chart.svg "https://quickchart.io/chart?w=800&h=200&c={type:'bar',data:{labels:['${LABELS//|/\',\'}'],datasets:[{label:'Events',data:[${DATA}],backgroundColor:'rgba(54,162,235,0.5)',borderColor:'rgb(54,162,235)',borderWidth:1}]},options:{scales:{y:{beginAtZero:true}}}}" || echo "Chart generation failed"
-      
-      - name: Commit
-        run: |
-          ls -la public/ || echo "public directory not found"
-          git config user.name github-actions[bot]
-          git config user.email github-actions[bot]@users.noreply.github.com
-          git add public/activity-chart.svg || echo "File not found, skipping"
-          if git diff --staged --quiet; then
-            echo "No changes to commit"
-          else
-            git commit -m "Update activity chart [skip ci]"
-            git push
-          fi
+          echo "Static activity chart generation is deprecated."
+          echo "The live portfolio uses GitHubActivityChart.tsx instead."
