@@ -11,7 +11,7 @@ Welcome to my professional portfolio, a showcase of my expertise in cloud archit
 [![Email](https://img.shields.io/badge/Email-6D4AFF?style=for-the-badge&logo=protonmail&logoColor=white)](mailto:Oghenesuvweomashone@proton.me)
 
 ## GitHub Activity
-![Activity Graph](https://github-readme-activity-graph.vercel.app/graph?username=Oghenesuvwe-dev&theme=github-dark&hide_border=true&bg_color=0d1117)
+![Activity Graph](./public/activity-chart.svg)
 
 ## Featured Projects
 
