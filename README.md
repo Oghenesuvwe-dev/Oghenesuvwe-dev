@@ -10,8 +10,10 @@ Welcome to my professional portfolio, a showcase of my expertise in cloud archit
 [![Portfolio](https://img.shields.io/badge/Portfolio-000000?style=for-the-badge&logo=netlify&logoColor=white)](https://oghenesuvwe.netlify.app)
 [![Email](https://img.shields.io/badge/Email-6D4AFF?style=for-the-badge&logo=protonmail&logoColor=white)](mailto:Oghenesuvweomashone@proton.me)
 
-## GitHub Activity
-![Activity Graph](./public/activity-chart.svg)
+## GitHub Engineering Activity
+Public repository activity across the last 90 days.
+
+![GitHub Engineering Activity — Last 90 Days](./public/activity-chart.svg)
 
 ## Featured Projects
 
