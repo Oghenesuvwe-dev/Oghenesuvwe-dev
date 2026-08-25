@@ -1,8 +1,9 @@
 import { lazy, Suspense } from 'react';
 import { ThemeProvider } from './context/ThemeContext';
-import './App.css'
+import './App.css';
 import Hero from './components/Hero';
 import Banner from './components/Banner';
+import GitHubActivityChart from './components/GitHubActivityChart';
 
 const Navbar = lazy(() => import('./components/Navbar'));
 const About = lazy(() => import('./components/About'));
@@ -23,8 +24,9 @@ function App() {
           <main className="pt-16">
             <Hero />
             <About />
-            <Experience />
             <Projects />
+            <GitHubActivityChart />
+            <Experience />
             <Skills />
             <Certifications />
             <Badges />
@@ -33,7 +35,7 @@ function App() {
         </Suspense>
       </div>
     </ThemeProvider>
-  )
+  );
 }
 
-export default App
+export default App;
