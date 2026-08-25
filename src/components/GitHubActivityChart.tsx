@@ -1,12 +1,18 @@
 import { useEffect, useMemo, useState } from 'react';
 
+type Commit = {
+  sha: string;
+  commit: {
+    author?: { date?: string | null } | null;
+  };
+};
+
 type CommitWeek = {
   total: number;
   week: number;
 };
 
 type GitHubRepoStats = {
-  name: string;
   stargazers_count: number;
   forks_count: number;
   open_issues_count: number;
@@ -15,11 +21,41 @@ type GitHubRepoStats = {
 const OWNER = 'Oghenesuvwe-dev';
 const REPO = 'Oghenesuvwe-dev';
 const API_BASE = 'https://api.github.com';
+const WEEKS = 12;
+const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
 const formatWeek = (timestamp: number) =>
   new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' }).format(
     new Date(timestamp * 1000),
   );
+
+const startOfWeek = (date: Date) => {
+  const value = new Date(date);
+  const day = value.getUTCDay();
+  const diff = day === 0 ? 0 : -day;
+  value.setUTCDate(value.getUTCDate() + diff);
+  value.setUTCHours(0, 0, 0, 0);
+  return value;
+};
+
+const buildWeeks = (commits: Commit[]): CommitWeek[] => {
+  const currentWeek = startOfWeek(new Date()).getTime();
+  const weeks = Array.from({ length: WEEKS }, (_, index) => {
+    const week = currentWeek - (WEEKS - 1 - index) * WEEK_MS;
+    return { total: 0, week: Math.floor(week / 1000) };
+  });
+
+  for (const item of commits) {
+    const date = item.commit.author?.date;
+    if (!date) continue;
+
+    const timestamp = startOfWeek(new Date(date)).getTime();
+    const index = Math.round((timestamp - (currentWeek - (WEEKS - 1) * WEEK_MS)) / WEEK_MS);
+    if (index >= 0 && index < weeks.length) weeks[index].total += 1;
+  }
+
+  return weeks;
+};
 
 const GitHubActivityChart = () => {
   const [activity, setActivity] = useState<CommitWeek[]>([]);
@@ -35,8 +71,12 @@ const GitHubActivityChart = () => {
         setLoading(true);
         setError(null);
 
-        const [activityResponse, repoResponse] = await Promise.all([
-          fetch(`${API_BASE}/repos/${OWNER}/${REPO}/stats/commit_activity`, {
+        // GitHub's commit_activity statistics endpoint can return a temporary
+        // upstream response while GitHub calculates repository statistics.
+        // Use the stable commits endpoint instead and build the weekly series
+        // locally. This avoids the intermittent 202/402 failure seen in production.
+        const [commitsResponse, repoResponse] = await Promise.all([
+          fetch(`${API_BASE}/repos/${OWNER}/${REPO}/commits?per_page=100`, {
             headers: { Accept: 'application/vnd.github+json' },
           }),
           fetch(`${API_BASE}/repos/${OWNER}/${REPO}`, {
@@ -44,15 +84,15 @@ const GitHubActivityChart = () => {
           }),
         ]);
 
-        if (!activityResponse.ok || !repoResponse.ok) {
-          throw new Error('GitHub data is temporarily unavailable.');
+        if (!commitsResponse.ok) {
+          throw new Error(`GitHub commits request failed (${commitsResponse.status}).`);
         }
 
-        const activityData = (await activityResponse.json()) as CommitWeek[];
-        const repoData = (await repoResponse.json()) as GitHubRepoStats;
+        const commitsData = (await commitsResponse.json()) as Commit[];
+        const repoData = repoResponse.ok ? ((await repoResponse.json()) as GitHubRepoStats) : null;
 
         if (!cancelled) {
-          setActivity(activityData.slice(-12));
+          setActivity(buildWeeks(commitsData));
           setRepo(repoData);
         }
       } catch (err) {
