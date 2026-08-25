@@ -17,7 +17,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Generate 90-day public activity heatmap
+      - name: Generate 90-day contributed activity heatmap
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -28,7 +28,7 @@ jobs:
           import urllib.parse
           import urllib.request
           from collections import Counter
-          from datetime import date, datetime, timedelta, timezone
+          from datetime import datetime, timedelta, timezone
           from html import escape
 
           OWNER = "Oghenesuvwe-dev"
@@ -44,7 +44,7 @@ jobs:
                   headers={
                       "Accept": "application/vnd.github+json",
                       "Authorization": f"Bearer {TOKEN}",
-                      "X-GitHub-Api-Version": "2026-03-10",
+                      "X-GitHub-Api-Version": "2022-11-28",
                       "User-Agent": "Oghenesuvwe-profile-activity-chart",
                   },
               )
@@ -53,51 +53,51 @@ jobs:
                       return json.load(response)
               except urllib.error.HTTPError as exc:
                   body = exc.read().decode("utf-8", errors="replace")
-                  if exc.code in (403, 429):
-                      raise RuntimeError(f"GitHub API rate/permission error ({exc.code}): {body[:300]}")
                   raise RuntimeError(f"GitHub API error ({exc.code}) for {path}: {body[:300]}")
 
           end = datetime.now(timezone.utc).date()
           start = end - timedelta(days=DAYS - 1)
-          since = f"{start.isoformat()}T00:00:00Z"
-          until = f"{(end + timedelta(days=1)).isoformat()}T00:00:00Z"
+          after = start.isoformat()
+          before = end.isoformat()
 
-          repos = api(f"/users/{OWNER}/repos", {"type": "owner", "per_page": 100, "sort": "pushed"})
-          public_repos = [
-              repo for repo in repos
-              if not repo.get("private") and not repo.get("archived") and not repo.get("fork")
-          ]
-
+          # Search GitHub globally for commits authored by this GitHub account.
+          # Unlike /users/{owner}/repos, this includes public repositories where
+          # the account is a collaborator/contributor rather than the owner.
           daily = Counter()
           repo_totals = Counter()
+          repo_urls = {}
+          page = 1
+          total_results = 0
 
-          for repo in public_repos:
-              full_name = repo["full_name"]
-              page = 1
-              while True:
-                  commits = api(
-                      f"/repos/{full_name}/commits",
-                      {
-                          "author": OWNER,
-                          "since": since,
-                          "until": until,
-                          "per_page": 100,
-                          "page": page,
-                      },
-                  )
-                  if not commits:
-                      break
-                  for item in commits:
-                      raw_date = item.get("commit", {}).get("author", {}).get("date")
-                      if not raw_date:
-                          continue
-                      commit_date = datetime.fromisoformat(raw_date.replace("Z", "+00:00")).date()
-                      if start <= commit_date <= end:
-                          daily[commit_date] += 1
-                          repo_totals[full_name] += 1
-                  if len(commits) < 100:
-                      break
-                  page += 1
+          while page <= 10:
+              query = f"author:{OWNER} committer-date:>={after} committer-date:<={before}"
+              results = api("/search/commits", {"q": query, "per_page": 100, "page": page})
+              items = results.get("items", [])
+              total_results = results.get("total_count", total_results)
+              if not items:
+                  break
+
+              for item in items:
+                  full_name = item.get("repository", {}).get("full_name")
+                  if not full_name:
+                      continue
+                  repo = item.get("repository", {})
+                  if repo.get("private") or repo.get("fork"):
+                      continue
+                  raw_date = item.get("commit", {}).get("author", {}).get("date")
+                  if not raw_date:
+                      raw_date = item.get("commit", {}).get("committer", {}).get("date")
+                  if not raw_date:
+                      continue
+                  commit_date = datetime.fromisoformat(raw_date.replace("Z", "+00:00")).date()
+                  if start <= commit_date <= end:
+                      daily[commit_date] += 1
+                      repo_totals[full_name] += 1
+                      repo_urls[full_name] = repo.get("html_url", f"https://github.com/{full_name}")
+
+              if len(items) < 100:
+                  break
+              page += 1
 
           total_commits = sum(daily.values())
           active_days = sum(1 for count in daily.values() if count)
@@ -109,7 +109,6 @@ jobs:
           # Sunday-first grid, with only the exact 90-day window populated.
           grid_start = start - timedelta(days=(start.weekday() + 1) % 7)
           grid_end = end + timedelta(days=(6 - ((end.weekday() + 1) % 7)))
-          weeks = ((grid_end - grid_start).days + 1) // 7
 
           width, height = 1000, 430
           cell = 18
@@ -165,8 +164,9 @@ jobs:
               y = repo_base_y + index * 25
               bar_width = int(300 * count / max_repo)
               repo_rows.append(
+                  f'<a href="{escape(repo_urls.get(name, f"https://github.com/{name}"))}">' 
                   f'<text x="72" y="{y}" font-family="system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif" '
-                  f'font-size="11" fill="#c9d1d9">{escape(label[:28])}</text>'
+                  f'font-size="11" fill="#c9d1d9">{escape(label[:28])}</text></a>'
                   f'<rect x="270" y="{y-11}" width="300" height="10" rx="5" fill="#21262d"/>'
                   f'<rect x="270" y="{y-11}" width="{bar_width}" height="10" rx="5" fill="#26a641"><title>{count} commits</title></rect>'
                   f'<text x="590" y="{y}" font-family="system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif" '
@@ -177,27 +177,27 @@ jobs:
           end_label = end.strftime("%b %-d, %Y")
           svg = f'''<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" viewBox="0 0 {width} {height}" role="img" aria-labelledby="title desc">
           <title id="title">GitHub Engineering Activity — Last 90 Days</title>
-          <desc id="desc">Public repository activity from {escape(start_label)} through {escape(end_label)}: {total_commits} commits across {active_repos} repositories and {active_days} active days.</desc>
+          <desc id="desc">Contributed activity from {escape(start_label)} through {escape(end_label)}: {total_commits} commits across {active_repos} public repositories and {active_days} active days.</desc>
           <rect width="100%" height="100%" rx="20" fill="#0d1117"/>
           <text x="40" y="42" font-family="system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif" font-size="24" font-weight="700" fill="#f0f6fc">GitHub Engineering Activity</text>
-          <text x="40" y="67" font-family="system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif" font-size="12" fill="#8b949e">Public repositories · Last 90 days</text>
+          <text x="40" y="67" font-family="system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif" font-size="12" fill="#8b949e">Public repositories · Last 90 days · Contributions across repositories</text>
           <text x="740" y="38" font-family="system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif" font-size="13" font-weight="700" fill="#f0f6fc">{total_commits} commits</text>
           <text x="740" y="59" font-family="system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif" font-size="11" fill="#8b949e">{active_days} active days · {active_repos} repositories</text>
           {''.join(month_labels)}
           {''.join(weekday_labels)}
           {''.join(cells)}
           <text x="72" y="275" font-family="system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif" font-size="12" font-weight="700" fill="#f0f6fc">Most active repositories</text>
-          {''.join(repo_rows)}
+          {''.join(repo_rows) if repo_rows else '<text x="72" y="300" font-family="system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif" font-size="11" fill="#8b949e">No public contributions found in this window.</text>'}
           <text x="740" y="302" font-family="system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif" font-size="11" fill="#8b949e">Less</text>
           {''.join(f'<rect x="{785 + i*22}" y="292" width="16" height="16" rx="4" fill="{color}"/>' for i, color in enumerate(colors))}
           <text x="900" y="302" font-family="system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif" font-size="11" fill="#8b949e">More</text>
-          <text x="72" y="410" font-family="system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif" font-size="10" fill="#6e7681">Activity is based on commits authored by {OWNER} in public, non-fork repositories.</text>
+          <text x="72" y="410" font-family="system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif" font-size="10" fill="#6e7681">Activity includes public repositories where {OWNER} is the author, including collaborator/contributor repositories.</text>
           </svg>'''
 
           os.makedirs("public", exist_ok=True)
           with open("public/activity-chart.svg", "w", encoding="utf-8") as file:
               file.write(svg)
-          print(f"Generated 90-day chart: {total_commits} commits, {active_days} active days, {active_repos} repositories")
+          print(f"Generated contributed 90-day chart: {total_commits} commits, {active_days} active days, {active_repos} repositories; search total={total_results}")
           PY
 
       - name: Commit chart
@@ -208,6 +208,6 @@ jobs:
           if git diff --cached --quiet; then
             echo "Activity chart is already current."
           else
-            git commit -m "chore: update 90-day GitHub activity chart [skip ci]"
+            git commit -m "chore: update contributed 90-day activity chart [skip ci]"
             git push
           fi
