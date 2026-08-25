@@ -1,18 +1,103 @@
-name: Profile Activity Chart
-
-# Deprecated: the live portfolio now renders repository activity directly
-# from GitHub's public API in src/components/GitHubActivityChart.tsx.
-# Kept as a manual workflow for historical compatibility; it no longer
-# generates or commits a static chart artifact.
+name: Update GitHub Activity Chart
 
 on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "17 */6 * * *"
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
-  deprecated:
+  generate:
     runs-on: ubuntu-latest
     steps:
-      - name: Explain replacement
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Generate activity SVG
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          echo "Static activity chart generation is deprecated."
-          echo "The live portfolio uses GitHubActivityChart.tsx instead."
+          python - <<'PY'
+          import json, os, subprocess
+          from datetime import datetime, timedelta, timezone
+          from html import escape
+
+          owner = "Oghenesuvwe-dev"
+          repo = "Oghenesuvwe-dev"
+          api = f"https://api.github.com/repos/{owner}/{repo}/commits?per_page=100"
+          raw = subprocess.check_output([
+              "curl", "-fsSL",
+              "-H", f"Authorization: Bearer {os.environ['GH_TOKEN']}",
+              "-H", "Accept: application/vnd.github+json",
+              api,
+          ])
+          commits = json.loads(raw)
+
+          now = datetime.now(timezone.utc)
+          monday = (now - timedelta(days=now.weekday())).replace(hour=0, minute=0, second=0, microsecond=0)
+          weeks = []
+          for i in range(11, -1, -1):
+              start = monday - timedelta(weeks=i)
+              weeks.append([start, 0])
+
+          for item in commits:
+              date = item.get("commit", {}).get("author", {}).get("date")
+              if not date:
+                  continue
+              dt = datetime.fromisoformat(date.replace("Z", "+00:00"))
+              week_start = (dt - timedelta(days=dt.weekday())).replace(hour=0, minute=0, second=0, microsecond=0)
+              for week in weeks:
+                  if week[0] == week_start:
+                      week[1] += 1
+                      break
+
+          width, height = 900, 300
+          chart_left, chart_top = 70, 55
+          chart_w, chart_h = 790, 170
+          max_value = max([w[1] for w in weeks] + [1])
+          bar_w = 42
+          gap = (chart_w - len(weeks) * bar_w) / (len(weeks) - 1)
+
+          bars = []
+          for i, (start, count) in enumerate(weeks):
+              x = chart_left + i * (bar_w + gap)
+              bar_h = 0 if count == 0 else max(6, (count / max_value) * chart_h)
+              y = chart_top + chart_h - bar_h
+              label = start.strftime("%b %-d")
+              bars.append(
+                  f'<rect x="{x:.1f}" y="{y:.1f}" width="{bar_w}" height="{bar_h:.1f}" rx="6" fill="#2563eb">'
+                  f'<title>{count} commit{"s" if count != 1 else ""} — week of {escape(label)}</title></rect>'
+                  f'<text x="{x + bar_w/2:.1f}" y="252" text-anchor="middle" font-size="11" fill="#6b7280">{escape(label)}</text>'
+              )
+
+          total = sum(w[1] for w in weeks)
+          svg = f'''<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" viewBox="0 0 {width} {height}" role="img" aria-labelledby="title desc">
+          <title id="title">GitHub repository activity</title>
+          <desc id="desc">Weekly commit activity for the Oghenesuvwe-dev profile repository over the last 12 weeks. Total commits: {total}.</desc>
+          <rect width="100%" height="100%" rx="18" fill="#0d1117"/>
+          <text x="40" y="34" font-family="system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif" font-size="17" font-weight="700" fill="#f0f6fc">GitHub Activity</text>
+          <text x="860" y="34" text-anchor="end" font-family="system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif" font-size="12" fill="#8b949e">{total} commits · 12 weeks</text>
+          <line x1="{chart_left}" y1="{chart_top + chart_h}" x2="{chart_left + chart_w}" y2="{chart_top + chart_h}" stroke="#30363d"/>
+          {''.join(bars)}
+          </svg>'''
+
+          os.makedirs("public", exist_ok=True)
+          with open("public/activity-chart.svg", "w", encoding="utf-8") as f:
+              f.write(svg)
+          PY
+
+      - name: Commit chart
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add public/activity-chart.svg
+          if git diff --cached --quiet; then
+            echo "Activity chart is already current."
+          else
+            git commit -m "chore: update GitHub activity chart [skip ci]"
+            git push
+          fi
