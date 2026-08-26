@@ -17,213 +17,182 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Generate privacy-aware 90-day activity heatmap
+      - name: Generate adaptive privacy-aware activity heatmap
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           python - <<'PY'
-          import json
-          import os
-          import urllib.error
-          import urllib.parse
-          import urllib.request
+          import json, os, urllib.error, urllib.parse, urllib.request
           from collections import Counter
           from datetime import datetime, timedelta, timezone
           from html import escape
 
           OWNER = "Oghenesuvwe-dev"
-          DAYS = 90
           TOKEN = os.environ["GH_TOKEN"]
 
           def api(path, params=None):
               url = "https://api.github.com" + path
               if params:
                   url += "?" + urllib.parse.urlencode(params)
-              request = urllib.request.Request(
-                  url,
-                  headers={
-                      "Accept": "application/vnd.github+json",
-                      "Authorization": f"Bearer {TOKEN}",
-                      "X-GitHub-Api-Version": "2022-11-28",
-                      "User-Agent": "Oghenesuvwe-profile-activity-chart",
-                  },
-              )
+              req = urllib.request.Request(url, headers={
+                  "Accept": "application/vnd.github+json",
+                  "Authorization": f"Bearer {TOKEN}",
+                  "X-GitHub-Api-Version": "2022-11-28",
+                  "User-Agent": "Oghenesuvwe-profile-activity-chart",
+              })
               try:
-                  with urllib.request.urlopen(request, timeout=30) as response:
+                  with urllib.request.urlopen(req, timeout=30) as response:
                       return json.load(response)
               except urllib.error.HTTPError as exc:
                   body = exc.read().decode("utf-8", errors="replace")
                   raise RuntimeError(f"GitHub API error ({exc.code}) for {path}: {body[:300]}")
 
-          end = datetime.now(timezone.utc).date()
-          start = end - timedelta(days=DAYS - 1)
-          after = start.isoformat()
-          before = end.isoformat()
+          def collect(days):
+              end = datetime.now(timezone.utc).date()
+              start = end - timedelta(days=days - 1)
+              after, before = start.isoformat(), end.isoformat()
+              daily, personal = Counter(), Counter()
+              personal_urls = {}
+              aggregate = 0
+              page = 1
+              while page <= 10:
+                  query = f"author:{OWNER} committer-date:>={after} committer-date:<={before}"
+                  results = api("/search/commits", {"q": query, "per_page": 100, "page": page})
+                  items = results.get("items", [])
+                  if not items:
+                      break
+                  for item in items:
+                      repo = item.get("repository", {})
+                      full_name = repo.get("full_name")
+                      raw_date = item.get("commit", {}).get("author", {}).get("date") or item.get("commit", {}).get("committer", {}).get("date")
+                      if not full_name or not raw_date:
+                          continue
+                      commit_date = datetime.fromisoformat(raw_date.replace("Z", "+00:00")).date()
+                      if not (start <= commit_date <= end):
+                          continue
+                      daily[commit_date] += 1
+                      is_personal_public = full_name.lower().startswith(OWNER.lower() + "/") and not repo.get("private", False) and not repo.get("fork", False)
+                      if is_personal_public:
+                          personal[full_name] += 1
+                          personal_urls[full_name] = repo.get("html_url", f"https://github.com/{full_name}")
+                      else:
+                          aggregate += 1
+                  if len(items) < 100:
+                      break
+                  page += 1
+              pr_count = int(api("/search/issues", {"q": f"author:{OWNER} type:pr created:>={after} created:<={before}", "per_page": 1}).get("total_count", 0))
+              issue_count = int(api("/search/issues", {"q": f"author:{OWNER} type:issue created:>={after} created:<={before}", "per_page": 1}).get("total_count", 0))
+              return {
+                  "days": days, "start": start, "end": end, "daily": daily, "personal": personal,
+                  "personal_urls": personal_urls, "aggregate": aggregate, "prs": pr_count, "issues": issue_count
+              }
 
-          daily = Counter()
-          personal_repo_totals = Counter()
-          personal_repo_urls = {}
-          collaborative_commits = 0
-          total_results = 0
+          # Use the smallest useful window. If the 90-day view has fewer than
+          # 12 active days or 20 total commits, expand to 120; if still sparse,
+          # use the full last year. This changes coverage, never the underlying data.
+          data = collect(90)
+          if sum(data["daily"].values()) < 20 or len(data["daily"]) < 12:
+              data = collect(120)
+          if sum(data["daily"].values()) < 20 or len(data["daily"]) < 12:
+              data = collect(365)
 
-          # Search commits authored by the profile owner. Contributions may come
-          # from public personal repos, public collaborative repos, or private
-          # repos visible to the workflow token. Only public personal-repo names
-          # are ever retained for display. Everything else is aggregate-only.
-          page = 1
-          while page <= 10:
-              query = f"author:{OWNER} committer-date:>={after} committer-date:<={before}"
-              results = api("/search/commits", {"q": query, "per_page": 100, "page": page})
-              items = results.get("items", [])
-              total_results = results.get("total_count", total_results)
-              if not items:
-                  break
-
-              for item in items:
-                  repo = item.get("repository", {})
-                  full_name = repo.get("full_name")
-                  if not full_name:
-                      continue
-                  raw_date = item.get("commit", {}).get("author", {}).get("date")
-                  if not raw_date:
-                      raw_date = item.get("commit", {}).get("committer", {}).get("date")
-                  if not raw_date:
-                      continue
-                  commit_date = datetime.fromisoformat(raw_date.replace("Z", "+00:00")).date()
-                  if not (start <= commit_date <= end):
-                      continue
-
-                  daily[commit_date] += 1
-                  is_personal_public = (
-                      full_name.lower().startswith(OWNER.lower() + "/")
-                      and not repo.get("private", False)
-                      and not repo.get("fork", False)
-                  )
-                  if is_personal_public:
-                      personal_repo_totals[full_name] += 1
-                      personal_repo_urls[full_name] = repo.get("html_url", f"https://github.com/{full_name}")
-                  else:
-                      collaborative_commits += 1
-
-              if len(items) < 100:
-                  break
-              page += 1
-
-          def search_count(query):
-              return int(api("/search/issues", {"q": query, "per_page": 1}).get("total_count", 0))
-
-          # Counts only; no repository names, URLs, titles, bodies, or metadata
-          # from collaborative/private repositories are rendered anywhere.
-          pr_count = search_count(f"author:{OWNER} type:pr created:>={after} created:<={before}")
-          issue_count = search_count(f"author:{OWNER} type:issue created:>={after} created:<={before}")
-
+          days = data["days"]
+          start, end = data["start"], data["end"]
+          daily, personal = data["daily"], data["personal"]
           total_commits = sum(daily.values())
-          active_days = sum(1 for count in daily.values() if count)
-          personal_repo_count = len(personal_repo_totals)
-          top_repos = personal_repo_totals.most_common(4)
-          max_repo = max([count for _, count in top_repos] + [1])
+          active_days = len(daily)
+          personal_repo_count = len(personal)
+          top_repos = personal.most_common(4)
+          max_repo = max([c for _, c in top_repos] + [1])
           max_day = max(daily.values(), default=1)
 
-          grid_start = start - timedelta(days=(start.weekday() + 1) % 7)
-          grid_end = end + timedelta(days=(6 - ((end.weekday() + 1) % 7)))
+          # For 365 days, use weekly buckets to keep the SVG legible. For 90/120,
+          # show daily cells. Both remain true to the underlying activity.
+          weekly = days > 120
+          if weekly:
+              buckets = Counter()
+              for date, count in daily.items():
+                  bucket = start + timedelta(days=((date - start).days // 7) * 7)
+                  buckets[bucket] += count
+              grid_start = start - timedelta(days=(start.weekday() + 1) % 7)
+              grid_end = end + timedelta(days=(6 - ((end.weekday() + 1) % 7)))
+              max_bucket = max(buckets.values(), default=1)
+          else:
+              grid_start = start - timedelta(days=(start.weekday() + 1) % 7)
+              grid_end = end + timedelta(days=(6 - ((end.weekday() + 1) % 7)))
 
           width, height = 1000, 465
-          cell = 18
-          gap = 5
+          cell = 18 if not weekly else 10
+          gap = 5 if not weekly else 3
           grid_x, grid_y = 72, 118
           colors = ["#161b22", "#0e4429", "#006d32", "#26a641", "#39d353"]
 
-          def level(count):
-              if count <= 0:
-                  return 0
-              if max_day <= 1:
-                  return 4
-              ratio = count / max_day
-              return 1 if ratio <= 0.25 else 2 if ratio <= 0.5 else 3 if ratio <= 0.75 else 4
+          def level(count, maximum):
+              if count <= 0: return 0
+              if maximum <= 1: return 4
+              ratio = count / maximum
+              return 1 if ratio <= .25 else 2 if ratio <= .5 else 3 if ratio <= .75 else 4
 
-          cells = []
-          month_labels = []
+          cells, month_labels = [], []
           current = grid_start
           while current <= grid_end:
               col = (current - grid_start).days // 7
               row = (current - grid_start).days % 7
-              x = grid_x + col * (cell + gap)
-              y = grid_y + row * (cell + gap)
+              x, y = grid_x + col * (cell + gap), grid_y + row * (cell + gap)
               in_window = start <= current <= end
-              count = daily.get(current, 0) if in_window else 0
-              fill = colors[level(count)] if in_window else "none"
+              if weekly:
+                  count = buckets.get(current, 0) if in_window else 0
+                  maximum = max_bucket
+              else:
+                  count = daily.get(current, 0) if in_window else 0
+                  maximum = max_day
+              fill = colors[level(count, maximum)] if in_window else "none"
               stroke = "#30363d" if in_window else "none"
-              title = f"{count} commit{'s' if count != 1 else ''} — {current.strftime('%b %-d, %Y')}"
-              cells.append(
-                  f'<rect x="{x}" y="{y}" width="{cell}" height="{cell}" rx="4" fill="{fill}" stroke="{stroke}">'
-                  f'<title>{escape(title)}</title></rect>'
-              )
+              label = f"{count} commit{'s' if count != 1 else ''} — {current.strftime('%b %-d, %Y')}"
+              cells.append(f'<rect x="{x}" y="{y}" width="{cell}" height="{cell}" rx="4" fill="{fill}" stroke="{stroke}"><title>{escape(label)}</title></rect>')
               if current.day <= 7 and current.weekday() == 6 and in_window:
-                  month_labels.append(
-                      f'<text x="{x}" y="100" font-family="system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif" '
-                      f'font-size="12" fill="#8b949e">{current.strftime("%b")}</text>'
-                  )
-              current += timedelta(days=1)
+                  month_labels.append(f'<text x="{x}" y="100" font-family="system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif" font-size="12" fill="#8b949e">{current.strftime("%b")}</text>')
+              current += timedelta(days=7 if weekly else 1)
 
           weekday_labels = []
           for row, label in enumerate(["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]):
               if row in (1, 3, 5):
                   y = grid_y + row * (cell + gap) + 13
-                  weekday_labels.append(
-                      f'<text x="38" y="{y}" font-family="system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif" '
-                      f'font-size="10" fill="#6e7681">{label}</text>'
-                  )
+                  weekday_labels.append(f'<text x="38" y="{y}" font-family="system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif" font-size="10" fill="#6e7681">{label}</text>')
 
           repo_rows = []
-          repo_base_y = 325
           for index, (name, count) in enumerate(top_repos):
-              # This list contains only public repositories owned by OWNER.
               label = name.split("/", 1)[-1]
-              y = repo_base_y + index * 25
+              y = 325 + index * 25
               bar_width = int(300 * count / max_repo)
-              safe_url = escape(personal_repo_urls[name], quote=True)
-              repo_rows.append(
-                  f'<a href="{safe_url}">' 
-                  f'<text x="72" y="{y}" font-family="system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif" '
-                  f'font-size="11" fill="#c9d1d9">{escape(label[:28])}</text></a>'
-                  f'<rect x="270" y="{y-11}" width="300" height="10" rx="5" fill="#21262d"/>'
-                  f'<rect x="270" y="{y-11}" width="{bar_width}" height="10" rx="5" fill="#26a641"><title>{count} commits</title></rect>'
-                  f'<text x="590" y="{y}" font-family="system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif" '
-                  f'font-size="11" fill="#8b949e">{count}</text>'
-              )
+              safe_url = escape(data["personal_urls"][name], quote=True)
+              repo_rows.append(f'<a href="{safe_url}"><text x="72" y="{y}" font-family="system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif" font-size="11" fill="#c9d1d9">{escape(label[:28])}</text></a><rect x="270" y="{y-11}" width="300" height="10" rx="5" fill="#21262d"/><rect x="270" y="{y-11}" width="{bar_width}" height="10" rx="5" fill="#26a641"><title>{count} commits</title></rect><text x="590" y="{y}" font-family="system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif" font-size="11" fill="#8b949e">{count}</text>')
 
-          start_label = start.strftime("%b %-d, %Y")
-          end_label = end.strftime("%b %-d, %Y")
+          window_label = f"Last {days} days" if days != 365 else "Last 365 days"
+          title = f"GitHub Engineering Activity — {window_label}"
+          desc = f"{window_label}. {total_commits} commits, {active_days} active days, {data['prs']} pull requests, and {data['issues']} issues. Repository names are shown only for public personal repositories."
           svg = f'''<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" viewBox="0 0 {width} {height}" role="img" aria-labelledby="title desc">
-          <title id="title">GitHub Engineering Activity — Last 90 Days</title>
-          <desc id="desc">90-day engineering activity from {escape(start_label)} through {escape(end_label)}. {total_commits} commits, {active_days} active days, {pr_count} pull requests, and {issue_count} issues. Repository names are shown only for public personal repositories.</desc>
+          <title id="title">{escape(title)}</title><desc id="desc">{escape(desc)}</desc>
           <rect width="100%" height="100%" rx="20" fill="#0d1117"/>
           <text x="40" y="42" font-family="system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif" font-size="24" font-weight="700" fill="#f0f6fc">GitHub Engineering Activity</text>
-          <text x="40" y="67" font-family="system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif" font-size="12" fill="#8b949e">Last 90 days · privacy-aware activity across repositories</text>
+          <text x="40" y="67" font-family="system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif" font-size="12" fill="#8b949e">{escape(window_label)} · privacy-aware activity across repositories</text>
           <text x="710" y="38" font-family="system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif" font-size="13" font-weight="700" fill="#f0f6fc">{total_commits} commits</text>
           <text x="710" y="59" font-family="system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif" font-size="11" fill="#8b949e">{active_days} active days · {personal_repo_count} personal repos</text>
-          {''.join(month_labels)}
-          {''.join(weekday_labels)}
-          {''.join(cells)}
+          {''.join(month_labels)}{''.join(weekday_labels)}{''.join(cells)}
           <text x="72" y="292" font-family="system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif" font-size="12" font-weight="700" fill="#f0f6fc">Engineering metrics</text>
-          <text x="72" y="312" font-family="system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif" font-size="11" fill="#8b949e">Pull requests</text>
-          <text x="150" y="312" font-family="system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif" font-size="12" font-weight="700" fill="#f0f6fc">{pr_count}</text>
-          <text x="190" y="312" font-family="system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif" font-size="11" fill="#8b949e">Issues</text>
-          <text x="230" y="312" font-family="system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif" font-size="12" font-weight="700" fill="#f0f6fc">{issue_count}</text>
-          <text x="270" y="312" font-family="system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif" font-size="11" fill="#8b949e">Collaborative / restricted commits</text>
-          <text x="470" y="312" font-family="system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif" font-size="12" font-weight="700" fill="#f0f6fc">{collaborative_commits}</text>
+          <text x="72" y="312" font-family="system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif" font-size="11" fill="#8b949e">Pull requests</text><text x="150" y="312" font-family="system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif" font-size="12" font-weight="700" fill="#f0f6fc">{data['prs']}</text>
+          <text x="190" y="312" font-family="system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif" font-size="11" fill="#8b949e">Issues</text><text x="230" y="312" font-family="system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif" font-size="12" font-weight="700" fill="#f0f6fc">{data['issues']}</text>
+          <text x="270" y="312" font-family="system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif" font-size="11" fill="#8b949e">Collaborative / restricted commits</text><text x="470" y="312" font-family="system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif" font-size="12" font-weight="700" fill="#f0f6fc">{data['aggregate']}</text>
           <text x="72" y="345" font-family="system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif" font-size="12" font-weight="700" fill="#f0f6fc">Personal projects</text>
           {''.join(repo_rows) if repo_rows else '<text x="72" y="375" font-family="system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif" font-size="11" fill="#8b949e">No public personal-repository activity in this window.</text>'}
           <text x="740" y="350" font-family="system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif" font-size="11" fill="#8b949e">Activity intensity</text>
-          {''.join(f'<rect x="740" y="{365 + i*22}" width="16" height="16" rx="4" fill="{color}"/>' for i, color in enumerate(colors))}
+          {''.join(f'<rect x="740" y="{365+i*22}" width="16" height="16" rx="4" fill="{c}"/>' for i,c in enumerate(colors))}
           <text x="775" y="377" font-family="system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif" font-size="10" fill="#6e7681">Less → More</text>
           <text x="72" y="442" font-family="system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif" font-size="10" fill="#6e7681">Only public personal repositories are named. Collaborative and restricted repositories contribute to aggregate activity only.</text>
           </svg>'''
-
           os.makedirs("public", exist_ok=True)
-          with open("public/activity-chart.svg", "w", encoding="utf-8") as file:
-              file.write(svg)
-          print(f"Generated privacy-aware chart: {total_commits} commits, {active_days} active days, {personal_repo_count} personal repos, {pr_count} PRs, {issue_count} issues, {collaborative_commits} aggregate-only commits; search total={total_results}")
+          with open("public/activity-chart.svg", "w", encoding="utf-8") as f: f.write(svg)
+          print(f"Generated adaptive {days}-day chart: {total_commits} commits, {active_days} active days, {personal_repo_count} personal repos, {data['prs']} PRs, {data['issues']} issues, {data['aggregate']} aggregate-only commits")
           PY
 
       - name: Commit chart
@@ -231,9 +200,4 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add public/activity-chart.svg
-          if git diff --cached --quiet; then
-            echo "Activity chart is already current."
-          else
-            git commit -m "chore: update privacy-aware 90-day activity chart [skip ci]"
-            git push
-          fi
+          if git diff --cached --quiet; then echo "Activity chart is already current."; else git commit -m "chore: update adaptive privacy-aware activity chart [skip ci]"; git push; fi
