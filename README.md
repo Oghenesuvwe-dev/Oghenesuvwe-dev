@@ -11,11 +11,11 @@ I build cloud platforms, ML, AI-enabled systems and automation with a focus on r
 
 ## GitHub Engineering Activity
 
-**Last 90 days · privacy-aware activity across repositories**
+**Adaptive 90–365 day view · privacy-aware activity across repositories**
 
-Only public personal repositories are named. Collaborative and restricted repositories contribute to aggregate activity counts without exposing repository names, organization names, URLs, titles, or other project metadata.
+The chart uses the smallest useful window based on activity density: 90 days first, then 120 days, then 365 days when activity is sparse. Only public personal repositories are named. Collaborative and restricted repositories contribute to aggregate activity counts without exposing repository names, organization names, URLs, titles, or other project metadata.
 
-![GitHub Engineering Activity — Last 90 Days](./public/activity-chart.svg)
+![GitHub Engineering Activity](./public/activity-chart.svg)
 
 ## Selected Engineering Work
 
@@ -37,10 +37,10 @@ GitOps-based multi-cluster Kubernetes management with FluxCD and production-orie
 AWS · Azure · Oracle Cloud · GCP
 
 **Platform & Infrastructure**  
-Kubernetes · Docker · Terraform · Helm · GitHub Actions
+Kubernetes · Docker · Terraform · **Ansible** · Helm · GitHub Actions
 
-**ML & AI**  
-NVIDIA NIM · Hugging Face · AI agents · Retrieval workflows
+**ML & AI Engineering**  
+**LangChain** · **Model Context Protocol (MCP)** · NVIDIA NIM · Hugging Face · AI agents · RAG / retrieval workflows
 
 **Full-Stack Engineering**  
 Python · C#/.NET · TypeScript · React · Node.js
