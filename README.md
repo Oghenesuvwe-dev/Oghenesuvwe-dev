@@ -9,13 +9,9 @@ I build cloud platforms, ML, AI-enabled systems and automation with a focus on r
 [![Email](https://img.shields.io/badge/Email-6D4AFF?style=for-the-badge&logo=protonmail&logoColor=white)](mailto:Oghenesuvweomashone@proton.me)
 [![Credly](https://img.shields.io/badge/Credly-FF6B35?style=for-the-badge&logo=credly&logoColor=white)](https://www.credly.com/users/oghenesuvwe-dev)
 
-## GitHub Engineering Activity
+## GitHub Activity
 
-**Adaptive 90–365 day view · privacy-aware activity across repositories**
-
-The chart uses the smallest useful window based on activity density: 90 days first, then 120 days, then 365 days when activity is sparse. Only public personal repositories are named. Collaborative and restricted repositories contribute to aggregate activity counts without exposing repository names, organization names, URLs, titles, or other project metadata.
-
-![GitHub Engineering Activity](./public/activity-chart.svg)
+![GitHub Activity](./public/activity-chart.svg)
 
 ## Selected Engineering Work
 
