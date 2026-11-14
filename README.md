@@ -1,6 +1,6 @@
 # Oghenesuvwe Omashone
 
-## Cloud & Full-Stack Engineer | ML & AI | Automation | FinOps
+## Cloud & Full-Stack Engineer(with .Ts) | ML & AI | SRE / Automation | FinOps
 
 I build cloud platforms, ML, AI-enabled systems and automation with a focus on reliability, scalability and cost efficiency.
 
